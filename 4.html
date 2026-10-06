@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Деканат — Лаб. №4</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #countdown-block { border: 2px solid #333; display: inline-block; padding: 10px 20px; margin-bottom: 20px; text-align: center; }
+        #countdown-block .title { font-weight: bold; font-size: 16px; margin-bottom: 8px; }
+        #countdown-block .numbers { display: flex; gap: 20px; }
+        #countdown-block .unit { text-align: center; }
+        #countdown-block .unit .num { font-weight: bold; font-size: 22px; }
+        #countdown-block .unit .label { font-size: 12px; }
+        table { border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #333; padding: 4px 10px; }
+        .section { margin-top: 30px; padding-top: 10px; border-top: 2px solid #aaa; }
+    </style>
+</head>
+<body>
+
+<!-- ===== СЧЁТЧИК ===== -->
+<div id="countdown-block">
+    <div class="title" id="countdown-title">До начала учебного года</div>
+    <div class="numbers">
+        <div class="unit"><div class="num" id="cd-days">--</div><div class="label">дней</div></div>
+        <div class="unit"><div class="num" id="cd-hours">--</div><div class="label">часов</div></div>
+        <div class="unit"><div class="num" id="cd-minutes">--</div><div class="label">минут</div></div>
+        <div class="unit"><div class="num" id="cd-seconds">--</div><div class="label">секунд</div></div>
+    </div>
+</div>
+
+<script>
+// Чётный вариант: до 1 сентября
+function updateCountdown() {
+    var now = new Date();
+    var year = now.getFullYear();
+    var target = new Date(year, 8, 1, 0, 0, 0); // 8 = сентябрь
+    if (now >= target) target = new Date(year + 1, 8, 1);
+
+    document.getElementById("countdown-title").textContent =
+        "До начала " + target.getFullYear() + " учебного года";
+
+    var s = Math.floor((target - now) / 1000);
+    document.getElementById("cd-seconds").textContent = s % 60;
+    var m = Math.floor(s / 60);
+    document.getElementById("cd-minutes").textContent = m % 60;
+    var h = Math.floor(m / 60);
+    document.getElementById("cd-hours").textContent = h % 24;
+    document.getElementById("cd-days").textContent   = Math.floor(h / 24);
+}
+updateCountdown();
+setInterval(updateCountdown, 1000);
+</script>
+
+<script>
+// ===== БАЗА ДАННЫХ =====
+var MyDataBase = [
+    [[5, 4, 5],    { FIO: "Петрова Анна Михайловна",        day: [15, "май",       2001] }, ["Физика", "Информатика", "Высшая математика"]],
+    [[4, 5, 3],    { FIO: "Соколов Виктор Романович",       day: [22, "август",    2000] }, ["Физика", "История России", "Русский язык"]],
+    [[5, 4, 4, 5], { FIO: "Козлов Дмитрий Сергеевич",      day: [10, "март",      1999] }, ["Информатика", "Физика", "Химия", "Высшая математика"]],
+    [[5, 5, 4],    { FIO: "Смирнова Елена Юрьевна",         day: [3,  "июль",     2002] }, ["Русский язык", "Литература", "История России"]],
+    [[4, undefined, 5, 4], { FIO: "Иванов Иван Иванович",   day: [13, "июль",     2000] }, ["Высшая математика", "Русский язык", "Физика", "История России"]],
+    [[5, 5, 5],    { FIO: "Морозов Игорь Владимирович",     day: [18, "декабрь",  2000] }, ["Физика", "Информатика", "Высшая математика"]],
+    [[4, 5, 4],    { FIO: "Новикова Ольга Андреевна",       day: [7,  "апрель",   2001] }, ["Химия", "Биология", "Физика"]],
+    [[5, 5, 5, 4], { FIO: "Лебедева Татьяна Николаевна",    day: [25, "сентябрь", 2001] }, ["Информатика", "Математика", "Физика", "Русский язык"]],
+    [null, null, null],
+    [null, null, null],
+    [null, null, null],
+    [null, null, null]
+];
+
+// ===== РАСПОЗНАВАНИЕ ПОЛЕЙ =====
+function getAllFields(student) {
+    var field1 = null, field2 = null, field3 = null;
+    for (var i = 0; i < student.length; i++) {
+        var item = student[i];
+        if (item === null || (typeof item === 'object' && item !== null && !Array.isArray(item))) {
+            field1 = item;
+        } else if (Array.isArray(item) && item.length > 0 && typeof item[0] === 'string') {
+            field2 = item;
+        } else if (Array.isArray(item) && (item.length === 0 || typeof item[0] === 'number' || item[0] === undefined)) {
+            field3 = item;
+        }
+    }
+    return { field1: field1, field2: field2, field3: field3 };
+}
+
+// ===== ПОСТРОЕНИЕ ОТЧЁТА =====
+function buildReport(data) {
+    var html = "";
+    var studentsWithFIO = [], lostCount = 0;
+    for (var i = 0; i < data.length; i++) {
+        var f = getAllFields(data[i]);
+        if (f.field1 !== null && typeof f.field1 === 'object' && f.field1.FIO && f.field1.FIO !== "noname") {
+            studentsWithFIO.push(f.field1.FIO);
+        } else { lostCount++; }
+    }
+    html += "<p><b>Клиенты фирмы:</b> " + studentsWithFIO.join(", ") + "</p>";
+    html += "<p><b>Кол-во клиентов с потерянным ФИО:</b> " + lostCount + "</p>";
+
+    var discCount = {}, uniqueDisc = [];
+    for (var i = 0; i < data.length; i++) {
+        var f = getAllFields(data[i]);
+        if (Array.isArray(f.field2)) {
+            for (var j = 0; j < f.field2.length; j++) {
+                var d = f.field2[j];
+                if (d && typeof d === 'string' && d.trim()) {
+                    if (!discCount[d]) { discCount[d] = 0; uniqueDisc.push(d); }
+                    discCount[d]++;
+                }
+            }
+        }
+    }
+    uniqueDisc.sort(function(a, b) { return discCount[b] - discCount[a]; });
+    html += "<h3>Предметы интереса клиентов</h3><table border='1'><tr><th>№</th><th>Предмет</th><th>Кол-во</th></tr>";
+    for (var i = 0; i < uniqueDisc.length; i++) {
+        html += "<tr><td>" + (i+1) + ".</td><td>" + uniqueDisc[i] + "</td><td>" + discCount[uniqueDisc[i]] + "</td></tr>";
+    }
+    html += "</table><p><b>Всего: " + uniqueDisc.length + "</b></p>";
+
+    var maxGrade = 0, maxDisc = "";
+    for (var i = 0; i < data.length; i++) {
+        var f = getAllFields(data[i]);
+        if (Array.isArray(f.field3) && Array.isArray(f.field2)) {
+            for (var j = 0; j < f.field3.length; j++) {
+                if (typeof f.field3[j] === 'number' && f.field3[j] > maxGrade) {
+                    maxGrade = f.field3[j];
+                    maxDisc  = f.field2[j] || "неизвестной дисциплине";
+                }
+            }
+        }
+    }
+    html += "<h3>Дополнительная информация</h3>";
+    html += "<p>Наибольшая оценка — " + maxGrade + " (дисциплина «" + maxDisc + "»)</p>";
+
+    var sch = [];
+    for (var i = 0; i < data.length; i++) {
+        var f = getAllFields(data[i]);
+        var hasFIO  = (f.field1 !== null && typeof f.field1 === 'object' && f.field1.FIO && f.field1.FIO !== "noname");
+        var hasGr   = Array.isArray(f.field3) && f.field3.length > 0;
+        var noUndef = hasGr && !f.field3.some(function(g){ return g === undefined; });
+        if (hasFIO && noUndef && hasGr && f.field3.every(function(g){ return g === 4 || g === 5; })) {
+            sch.push(f.field1.FIO);
+        }
+    }
+    if (sch.length > 0) {
+        html += "<p>Студенты со всеми известными оценками: " +
+            sch.map(function(s){ return s + " — Стипендия назначается"; }).join("; ") + "</p>";
+    } else {
+        html += "<p>Студенты со всеми известными оценками: нет</p>";
+    }
+    return html;
+}
+
+// ===== ГЛУБОКОЕ КОПИРОВАНИЕ ВРУЧНУЮ (без стандартных методов массивов) =====
+function deepCopyManual(src) {
+    if (src === null)      return null;
+    if (src === undefined) return undefined;
+    if (typeof src !== 'object') return src;
+    if (Array.isArray(src)) {
+        var res = [];
+        for (var key in src) {
+            if (src.hasOwnProperty(key)) res[key] = deepCopyManual(src[key]);
+        }
+        return res;
+    }
+    var obj = {};
+    for (var key in src) {
+        if (src.hasOwnProperty(key)) obj[key] = deepCopyManual(src[key]);
+    }
+    return obj;
+}
+
+var obj1 = {
+    Data: JSON.parse(JSON.stringify(MyDataBase)),
+
+    outData: function(targetId) {
+        document.getElementById(targetId).innerHTML = buildReport(this.Data);
+    }
+};
+
+function Changes() {
+    this.Data = deepCopyManual(MyDataBase);
+
+    // Чётный вариант: ФИО студентов с оценками 4/5 — ЗАГЛАВНЫМИ
+    // (если оценка undefined — пропускаем, она не мешает условию)
+    this.changeData = function() {
+        for (var i = 0; i < this.Data.length; i++) {
+            var f = getAllFields(this.Data[i]);
+            if (!f.field1 || typeof f.field1 !== 'object' || !f.field1.FIO) continue;
+            if (!Array.isArray(f.field3) || f.field3.length === 0) continue;
+
+            var allGood = true, hasKnown = false;
+            for (var j = 0; j < f.field3.length; j++) {
+                var g = f.field3[j];
+                if (g === undefined) continue;  // неизвестная — пропускаем
+                hasKnown = true;
+                if (g !== 4 && g !== 5) { allGood = false; break; }
+            }
+            if (allGood && hasKnown) {
+                f.field1.FIO = f.field1.FIO.toUpperCase();
+            }
+        }
+    };
+}
+var obj2 = new Changes();
+</script>
+
+<h1>Состояние базы «Деканат»</h1>
+
+<div class="section">
+    <h2>1) obj1.outData() — отчёт на основе obj1.Data</h2>
+    <div id="report1"></div>
+</div>
+
+<div class="section">
+    <h2>2) Отчёт на основе obj2.Data — через obj1.outData()</h2>
+    <p><i>obj1.Data временно подменяется на obj2.Data, вызывается obj1.outData()</i></p>
+    <div id="report2"></div>
+</div>
+
+<div class="section">
+    <h2>3–4) После obj2.changeData() → obj1.outData()</h2>
+    <p><i>ФИО студентов, у которых все известные оценки — 4 или 5, теперь ЗАГЛАВНЫМИ</i></p>
+    <div id="report3"></div>
+</div>
+
+<div class="section">
+    <h2>5) obj2.Data — не изменился</h2>
+    <div id="report4"></div>
+</div>
+
+<script>
+// ===== ДЕМОНСТРАЦИЯ (пп. 1–5) =====
+
+// 1) Отчёт на основе obj1.Data
+obj1.outData("report1");
+
+// 2) Отчёт на основе obj2.Data — через obj1.outData()
+var backup = obj1.Data;
+obj1.Data = obj2.Data;
+obj1.outData("report2");
+obj1.Data = backup;
+
+// 3) Изменить obj1.Data методом obj2.changeData()
+//    .call(obj1) — this внутри метода будет obj1
+obj2.changeData.call(obj1);
+
+// 4) Отобразить изменения
+obj1.outData("report3");
+
+// 5) Показать, что obj2.Data не изменился
+var backup2 = obj1.Data;
+obj1.Data = obj2.Data;
+obj1.outData("report4");
+obj1.Data = backup2;
+</script>
+
+</body>
+</html>

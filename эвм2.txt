@@ -1,0 +1,146 @@
+.186
+
+MY_STACK SEGMENT PARA STACK 'STACK'
+    DW 128 DUP(?)
+MY_STACK ENDS
+
+MY_DATA SEGMENT PARA PUBLIC 'DATA'
+    ARRAY       DW -5, 3, 7, 10, 15, 20
+    ARRAY_SIZE  DW 6
+
+    ; Нижняя и верхняя границы
+    BOUNDS      DW 3, 15
+
+    OLD_INT5    DW 2 DUP(?)
+    MSG         DB 'Result: $'
+MY_DATA ENDS
+
+MY_CODE SEGMENT PARA PUBLIC 'CODE'
+    ASSUME CS:MY_CODE, DS:MY_DATA, SS:MY_STACK
+
+; Флаг находится в сегменте кода,
+; чтобы обработчик мог обращаться к нему через CS.
+OUTSIDE DB 0
+
+main:
+    mov ax, MY_DATA
+    mov ds, ax
+
+    ; Сохранить старый обработчик прерывания 5
+    mov ax, 3505h
+    int 21h
+    mov OLD_INT5, bx
+    mov OLD_INT5+2, es
+
+    ; Установить свой обработчик
+    push ds
+    push cs
+    pop ds
+    mov dx, OFFSET bound_handler
+    mov ax, 2505h
+    int 21h
+    pop ds
+
+    ; Передать параметры через стек
+    lea ax, ARRAY
+    push ax
+    mov ax, ARRAY_SIZE
+    push ax
+    lea ax, BOUNDS
+    push ax
+    call change_array
+
+    ; Восстановить старый обработчик
+    mov dx, OLD_INT5
+    mov ax, OLD_INT5+2
+    push ds
+    mov ds, ax
+    mov ax, 2505h
+    int 21h
+    pop ds
+
+    ; Вывести результат
+    mov ah, 09h
+    lea dx, MSG
+    int 21h
+
+    lea si, ARRAY
+    mov cx, ARRAY_SIZE
+
+print_loop:
+    mov dx, [si]
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+
+    mov dl, ' '
+    mov ah, 02h
+    int 21h
+
+    add si, 2
+    loop print_loop
+
+    mov ax, 4C00h
+    int 21h
+
+
+change_array PROC NEAR
+    push bp
+    mov bp, sp
+    push ax
+    push bx
+    push cx
+    push si
+
+    mov bx, [bp+4]       ; Адрес двух границ
+    mov cx, [bp+6]       ; Количество элементов
+    mov si, [bp+8]       ; Адрес массива
+
+    jcxz change_done
+
+check_loop:
+    mov ax, [si]
+    mov byte ptr cs:[OUTSIDE], 0
+
+    bound ax, [bx]      ; Проверить AX по границам
+
+    cmp byte ptr cs:[OUTSIDE], 0
+    jne write_zero
+
+    mov word ptr [si], 1
+    jmp next_element
+
+write_zero:
+    mov word ptr [si], 0
+
+next_element:
+    add si, 2
+    loop check_loop
+
+change_done:
+    pop si
+    pop cx
+    pop bx
+    pop ax
+    pop bp
+    ret 6
+change_array ENDP
+
+
+bound_handler PROC FAR
+    push bp
+    mov bp, sp
+
+    mov byte ptr cs:[OUTSIDE], 1
+
+    ; BOUND сохраняет адрес самой команды.
+    ; Именно команда "bound ax, [bx]" занимает 2 байта.
+    ; Пропустить её, чтобы проверка не повторялась.
+    add word ptr ss:[bp+2], 2
+
+    pop bp
+    iret
+bound_handler ENDP
+
+MY_CODE ENDS
+END main

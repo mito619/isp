@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Отчёт по базе Деканат</title>
+</head>
+<body>
+
+<h1>Состояние базы «Деканат»</h1>
+
+<script>
+    // ========== БАЗА ДАННЫХ ==========
+    const database = [
+        // Петрова Анна Михайловна — всё в порядке
+        [[5, 4, 5], { FIO: "Петрова Анна Михайловна", day: [15, "май", 2001] }, ["Физика", "Информатика", "Высшая математика"]],
+
+        // Соколов Виктор Романович — пропуск в дисциплинах (нет второй дисциплины)
+        [[4, 5, 3], { FIO: "Соколов Виктор Романович", day: [22, "август", 2000] }, ["Физика", , "Русский язык"]],
+
+        // Козлов Дмитрий Сергеевич — одна оценка undefined
+        [[5, undefined, 4, 5], { FIO: "Козлов Дмитрий Сергеевич", day: [10, "март", 1999] }, ["Информатика", "Физика", "Химия", "Высшая математика"]],
+
+        // Смирнова Елена Юрьевна — всё в порядке
+        [[5, 5, 4], { FIO: "Смирнова Елена Юрьевна", day: [3, "июль", 2002] }, ["Русский язык", "Литература", "История России"]],
+
+        // Иванов Иван Иванович — оценка undefined
+        [[4, undefined, 5, 4], { FIO: "Иванов Иван Иванович", day: [13, "июль", 2000] }, ["Высшая математика", "Русский язык", "Физика", "История России"]],
+
+        // Морозов Игорь Владимирович — FIO: null (потерян)
+        [[5, 5, 5], { FIO: null, day: [18, "декабрь", 2000] }, ["Физика", "Информатика", "Высшая математика"]],
+
+        // Новикова Ольга Андреевна — пропуск в дисциплинах (нет третьей)
+        [[4, 5, 4], { FIO: "Новикова Ольга Андреевна", day: [7, "апрель", 2001] }, ["Химия", "Биология", ,]],
+
+        // Лебедева Татьяна Николаевна — всё в порядке
+        [[5, 5, 5, 4], { FIO: "Лебедева Татьяна Николаевна", day: [25, "сентябрь", 2001] }, ["Информатика", "Математика", "Физика", "Русский язык"]],
+
+        // Потерянные студенты (4 штуки)
+        [null, null, null],
+        [null, null, null],
+        [null, null, null],
+        [null, null, null],
+    ];
+
+    // ========== ФУНКЦИЯ РАСПОЗНАВАНИЯ ПОЛЕЙ ==========
+    function getAllFields(student) {
+        let field1 = null;
+        let field2 = null;
+        let grades = [];
+
+        for (let item of student) {
+            if (item === null) {
+                // пропускаем null
+            } else if (typeof item === 'object' && !Array.isArray(item)) {
+                field1 = item;
+            } else if (Array.isArray(item) && item.some(value => typeof value === 'string')) {
+                field2 = item;
+            } else if (Array.isArray(item) && (item.length === 0 || typeof item[0] === 'number' || item[0] === undefined)) {
+                grades = item;
+            }
+        }
+
+        return { field1, field2, field3: grades };
+    }
+
+    // ========== ФУНКЦИЯ УРАВНИВАНИЯ ОЦЕНОК И ДИСЦИПЛИН ==========
+    function getAligned(field2, field3) {
+        let disciplines = [];
+        let grades = [];
+        // Учитываем только полные пары оценка — предмет по одному индексу.
+        for (let i = 0; i < field3.length; i++) {
+            if (typeof field3[i] !== 'number' || !Array.isArray(field2) ||
+                typeof field2[i] !== 'string' || field2[i].trim() === '') continue;
+            disciplines.push(Array.isArray(field2) ? field2[i] : undefined);
+            grades.push(field3[i]);
+        }
+        return { disciplines, grades, count: grades.length };
+    }
+
+    // ========== 1. СПИСОК СТУДЕНТОВ С СОХРАНИВШИМИСЯ ФИО ==========
+    let studentsInfo = [];
+    let lostCount = 0;
+
+    for (let student of database) {
+        let { field1, field2, field3 } = getAllFields(student);
+
+        if (field1 !== null && typeof field1 === 'object' && field1.FIO && field1.FIO !== "noname") {
+            let { count } = getAligned(field2, field3);
+            studentsInfo.push(field1.FIO + " (" + count + " оц., " + count + " дисц.)");
+        } else {
+            lostCount++;
+        }
+    }
+
+    // ========== 2. СПИСОК ДИСЦИПЛИН ==========
+    let allDisciplines = [];
+
+    for (let student of database) {
+        let { field2, field3 } = getAllFields(student);
+        let { disciplines } = getAligned(field2, field3);
+
+        for (let d of disciplines) {
+            if (typeof d === 'string' && d.trim() !== '') allDisciplines.push(d);
+        }
+    }
+
+    let uniqueDisciplines = [...new Set(allDisciplines)];
+    let disciplineCount = {};
+    for (let d of allDisciplines) {
+        disciplineCount[d] = (disciplineCount[d] || 0) + 1;
+    }
+
+    uniqueDisciplines.sort((a, b) => disciplineCount[b] - disciplineCount[a]);
+
+    // ========== 3. МАКСИМАЛЬНАЯ ОЦЕНКА ==========
+    let maxGrade = 0;
+    let maxDiscipline = "";
+
+    for (let student of database) {
+        let { field2, field3 } = getAllFields(student);
+        let { disciplines, grades } = getAligned(field2, field3);
+
+        for (let i = 0; i < grades.length; i++) {
+            if (grades[i] > maxGrade) {
+                maxGrade     = grades[i];
+                maxDiscipline = disciplines[i] || "неизвестной дисциплине";
+            }
+        }
+    }
+
+    // ========== 4. СТУДЕНТЫ СО СТИПЕНДИЕЙ ==========
+    let scholarshipStudents = [];
+
+    for (let student of database) {
+        let { field1, field2, field3 } = getAllFields(student);
+        let { grades, count } = getAligned(field2, field3);
+
+        let hasFIO   = (field1 !== null && typeof field1 === 'object' && field1.FIO && field1.FIO !== "noname");
+        let hasGrades = count > 0;
+        let onlyGood  = grades.every(g => g === 4 || g === 5);
+
+        if (hasFIO && hasGrades && onlyGood) {
+            scholarshipStudents.push(field1.FIO);
+        }
+    }
+
+    // ========== ВЫВОД ОТЧЁТА ==========
+
+    document.write("<p><b>Клиенты фирмы:</b> " + studentsInfo.join(", ") + "</p>");
+    document.write("<p><b>Кол-во клиентов с потерянным ФИО:</b> " + lostCount + "</p>");
+
+    document.write("<h2>Предметы интереса клиентов</h2>");
+    document.write("<table border='1'>");
+    document.write("<tr><th>№</th><th>Предметы интереса</th><th>Сколько раз встречается</th></tr>");
+
+    for (let i = 0; i < uniqueDisciplines.length; i++) {
+        let d = uniqueDisciplines[i];
+        document.write("<tr><td>" + (i + 1) + ".</td><td>" + d + "</td><td>" + disciplineCount[d] + "</td></tr>");
+    }
+
+    document.write("</table>");
+    document.write("<p><b>Всего:</b> <b>" + uniqueDisciplines.length + "</b></p>");
+
+    document.write("<h2>Дополнительная информация</h2>");
+    document.write("<p>Наибольшая оценка в базе — " + maxGrade + " (по дисциплине «" + maxDiscipline + "»)</p>");
+
+    if (scholarshipStudents.length > 0) {
+        let list = scholarshipStudents.map(s => s + " — Стипендия назначается").join("; ");
+        document.write("<p>Студенты со всеми известными оценками: " + list + "</p>");
+    } else {
+        document.write("<p>Студенты со всеми известными оценками: нет</p>");
+    }
+</script>
+
+</body>
+</html>
